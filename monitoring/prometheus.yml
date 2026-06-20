@@ -1,0 +1,18 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: woori-relay
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["woori-relay:8080"]
+
+  - job_name: callbot-gateway
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["callbot-gateway:8000"]
+
+  - job_name: fds-gateway
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["fds-gateway:8010"]
