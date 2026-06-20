@@ -1,0 +1,56 @@
+spring:
+  application:
+    name: WooriRelay
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2s
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      acks: all
+      retries: 3
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      properties:
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 5
+        linger.ms: 5
+
+woori:
+  relay:
+    fast-api-ws-base-url: ${FASTAPI_WS_BASE_URL:ws://localhost:8000/v1/stream}
+    kafka-topic: ${KAFKA_FDS_TOPIC:wooricard-fds-events}
+    redis-session-key-prefix: "wooricard:session:"
+    max-binary-chunk-bytes: ${MAX_BINARY_CHUNK_BYTES:65536}
+    websocket:
+      allowed-origins: "*"
+      max-text-message-buffer-size: 65536
+      max-binary-message-buffer-size: 65536
+    cti:
+      enabled: ${CTI_ENABLED:false}
+      base-url: ${CTI_BASE_URL:http://localhost:9000}
+      escalation-path: /api/v1/escalations
+      connect-timeout-ms: 3000
+      read-timeout-ms: 5000
+
+logging:
+  level:
+    com.woori.woorirelay: INFO
+    org.springframework.web.socket: INFO
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      show-details: when_authorized
+  metrics:
+    tags:
+      application: ${spring.application.name}
