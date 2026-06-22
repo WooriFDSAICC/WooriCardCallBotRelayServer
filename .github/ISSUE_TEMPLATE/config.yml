@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Relay 실행 가이드
+    url: https://github.com/WooriFDSAICC/WooriCardCallBotRelayServer/blob/main/docs/RUNNING.md
+    about: Docker Compose·WebSocket·모니터링 실행 방법
