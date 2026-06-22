@@ -2,6 +2,9 @@ spring:
   application:
     name: WooriRelay
 
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+
   data:
     redis:
       host: ${REDIS_HOST:localhost}
@@ -24,7 +27,9 @@ spring:
 woori:
   relay:
     fast-api-ws-base-url: ${FASTAPI_WS_BASE_URL:ws://localhost:8000/v1/stream}
-    kafka-topic: ${KAFKA_FDS_TOPIC:wooricard-fds-events}
+    fast-api-ws-inbound-base-url: ${FASTAPI_WS_INBOUND_BASE_URL:ws://localhost:8000/v1/stream/inbound}
+    fast-api-ws-outbound-base-url: ${FASTAPI_WS_OUTBOUND_BASE_URL:ws://localhost:8000/v1/stream/outbound}
+    kafka-topic: ${KAFKA_FDS_TOPIC:wooricard-fds-events}  # default = IntegrationContracts.TOPIC_FDS_EVENTS
     redis-session-key-prefix: "wooricard:session:"
     max-binary-chunk-bytes: ${MAX_BINARY_CHUNK_BYTES:65536}
     websocket:
@@ -37,11 +42,27 @@ woori:
       escalation-path: /api/v1/escalations
       connect-timeout-ms: 3000
       read-timeout-ms: 5000
+      outbox:
+        enabled: ${CTI_OUTBOX_ENABLED:true}
+        max-attempts: ${CTI_OUTBOX_MAX_ATTEMPTS:5}
+        initial-retry-delay-ms: ${CTI_OUTBOX_INITIAL_RETRY_DELAY_MS:30000}
+        retry-interval-ms: ${CTI_OUTBOX_RETRY_INTERVAL_MS:30000}
+        batch-size: ${CTI_OUTBOX_BATCH_SIZE:10}
+        redis-key-prefix: "wooricard:cti:outbox:"
+    distributed-session:
+      enabled: ${DISTRIBUTED_SESSION_ENABLED:false}
+      instance-id: ${RELAY_INSTANCE_ID:}
+      owner-ttl-seconds: ${DISTRIBUTED_SESSION_OWNER_TTL_SECONDS:60}
+      heartbeat-interval-ms: ${DISTRIBUTED_SESSION_HEARTBEAT_INTERVAL_MS:20000}
+      redis-owner-key-prefix: "wooricard:relay:owner:"
+      redis-instance-key-prefix: "wooricard:relay:"
 
 logging:
   level:
     com.woori.woorirelay: INFO
     org.springframework.web.socket: INFO
+  pattern:
+    level: "%5p [${spring.application.name:},%X{traceId:-},%X{sessionId:-},%X{registryKey:-}]"
 
 management:
   endpoints:
@@ -54,3 +75,9 @@ management:
   metrics:
     tags:
       application: ${spring.application.name}
+  tracing:
+    sampling:
+      probability: ${OTEL_TRACES_SAMPLER_ARG:1.0}
+  otlp:
+    tracing:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318/v1/traces}
