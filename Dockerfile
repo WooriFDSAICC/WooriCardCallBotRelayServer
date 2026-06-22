@@ -17,7 +17,10 @@ FROM eclipse-temurin:21-jre-jammy
 WORKDIR /app
 
 RUN groupadd --system woori \
-    && useradd --system --gid woori --create-home woori
+    && useradd --system --gid woori --create-home woori \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/build/libs/*.jar app.jar
 
