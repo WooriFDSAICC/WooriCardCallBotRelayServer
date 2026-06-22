@@ -1,0 +1,32 @@
+name: 개발 이슈
+description: 오늘의 개발 이슈·기능 작업을 기록합니다
+title: "[ Relay ] "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        <!-- 제목은 [ 페이지명 ] 내용 으로 작성합니다 -->
+        <!-- ex) [ Relay ] 인바운드 WebSocket Relay -->
+        <!-- 대괄호 안에 띄어쓰기 있어용!!!!!!!! -->
+        <!-- 구현 완료 시 캡처도 띄어주세욤!! -->
+  - type: textarea
+    id: feature
+    attributes:
+      label: "💚 어떤 기능인가요?"
+      description: 구현하려는 기능·배경·연동 범위를 적어주세요.
+      placeholder: 예) PBX PCM을 Callbot Gateway로 중계하는 Voice WebSocket Relay
+    validations:
+      required: true
+  - type: textarea
+    id: todos
+    attributes:
+      label: "✅ To Dos"
+      description: 체크리스트 형식으로 작성해주세요.
+      value: |
+        - [ ]
+        - [ ]
+        - [ ]
+    validations:
+      required: true
