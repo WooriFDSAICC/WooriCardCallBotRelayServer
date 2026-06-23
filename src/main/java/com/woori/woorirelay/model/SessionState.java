@@ -1,3 +1,23 @@
+/**
+ *
+ *
+ * <pre>
+ * <b>Description  : Redis 세션 상태 모델</b>
+ * <b>Project Name : WooriCardCallBotRelayServer</b>
+ * package  : com.woori.woorirelay.model
+ * </pre>
+ *
+ * @author : RosieOh
+ * @version : 1.0
+ * @since
+ *     <pre>
+ * Modification Information
+ *    수정일              수정자                수정내용
+ * ---------------   ---------------   ----------------------------
+ *  2026.06.22        RosieOh     최초생성
+ *        </pre>
+ */
+
 package com.woori.woorirelay.model;
 
 import com.woori.woorirelay.constant.RedisHashFields;
@@ -5,6 +25,7 @@ import lombok.Builder;
 import lombok.Value;
 
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.Map;
 
 @Value
@@ -12,6 +33,8 @@ import java.util.Map;
 public class SessionState {
 
     String sessionId;
+    CallDirection direction;
+    String campaignId;
     SessionStatus status;
     FdsFlag fdsFlag;
     String lastEvent;
@@ -19,19 +42,23 @@ public class SessionState {
     Instant updatedAt;
 
     public Map<String, String> toHashFields() {
-        return Map.of(
-                RedisHashFields.SESSION_ID, sessionId,
-                RedisHashFields.STATUS, status.name(),
-                RedisHashFields.FDS_FLAG, fdsFlag.name(),
-                RedisHashFields.LAST_EVENT, lastEvent != null ? lastEvent : "",
-                RedisHashFields.LAST_STT_TEXT, lastSttText != null ? lastSttText : "",
-                RedisHashFields.UPDATED_AT, updatedAt.toString()
-        );
+        Map<String, String> fields = new HashMap<>();
+        fields.put(RedisHashFields.SESSION_ID, sessionId);
+        fields.put(RedisHashFields.CALL_DIRECTION, direction != null ? direction.name() : CallDirection.INBOUND.name());
+        fields.put(RedisHashFields.CAMPAIGN_ID, campaignId != null ? campaignId : "");
+        fields.put(RedisHashFields.STATUS, status.name());
+        fields.put(RedisHashFields.FDS_FLAG, fdsFlag.name());
+        fields.put(RedisHashFields.LAST_EVENT, lastEvent != null ? lastEvent : "");
+        fields.put(RedisHashFields.LAST_STT_TEXT, lastSttText != null ? lastSttText : "");
+        fields.put(RedisHashFields.UPDATED_AT, updatedAt.toString());
+        return fields;
     }
 
-    public static SessionState initial(String sessionId) {
+    public static SessionState initial(String sessionId, CallDirection direction, String campaignId) {
         return SessionState.builder()
                 .sessionId(sessionId)
+                .direction(direction != null ? direction : CallDirection.INBOUND)
+                .campaignId(campaignId)
                 .status(SessionStatus.CALL_CONNECTED)
                 .fdsFlag(FdsFlag.NORMAL)
                 .lastEvent("")
@@ -42,10 +69,12 @@ public class SessionState {
 
     public static SessionState fromHash(String sessionId, Map<Object, Object> hash) {
         if (hash == null || hash.isEmpty()) {
-            return initial(sessionId);
+            return initial(sessionId, CallDirection.INBOUND, null);
         }
         return SessionState.builder()
                 .sessionId(sessionId)
+                .direction(CallDirection.from(stringValue(hash.get(RedisHashFields.CALL_DIRECTION))))
+                .campaignId(stringValue(hash.get(RedisHashFields.CAMPAIGN_ID)))
                 .status(parseStatus(hash.get(RedisHashFields.STATUS)))
                 .fdsFlag(FdsFlag.from(stringValue(hash.get(RedisHashFields.FDS_FLAG))))
                 .lastEvent(stringValue(hash.get(RedisHashFields.LAST_EVENT)))
@@ -77,6 +106,10 @@ public class SessionState {
     }
 
     private static String stringValue(Object value) {
-        return value == null ? "" : value.toString();
+        if (value == null) {
+            return "";
+        }
+        String text = value.toString();
+        return text.isBlank() ? "" : text;
     }
 }

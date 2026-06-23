@@ -1,3 +1,23 @@
+/**
+ *
+ *
+ * <pre>
+ * <b>Description  : Gateway WebSocket JSON 분석 결과 DTO</b>
+ * <b>Project Name : WooriCardCallBotRelayServer</b>
+ * package  : com.woori.woorirelay.model
+ * </pre>
+ *
+ * @author : RosieOh
+ * @version : 1.0
+ * @since
+ *     <pre>
+ * Modification Information
+ *    수정일              수정자                수정내용
+ * ---------------   ---------------   ----------------------------
+ *  2026.06.22        RosieOh     최초생성
+ *        </pre>
+ */
+
 package com.woori.woorirelay.model;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
@@ -7,19 +27,10 @@ import lombok.Data;
 
 import java.util.Map;
 
+import com.woori.woorirelay.session.VoiceSessionEntry;
+
 /**
  * FastAPI AI Gateway가 WebSocket Text 프레임으로 반환하는 실시간 분석 결과 DTO.
- *
- * 예시:
- * {
- *   "status": "PROCESSING",
- *   "event": "STT_PARTIAL",
- *   "fds_flag": "NORMAL",
- *   "text": "카드 분실 신고",
- *   "stt_text": "카드 분실 신고",
- *   "fds_score": 0.12,
- *   "metadata": { "speaker": "customer" }
- * }
  */
 @Data
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -46,6 +57,21 @@ public class FastApiStreamResult {
 
     @JsonProperty("metadata")
     private Map<String, Object> metadata;
+
+    public FdsEvent toFdsEvent(VoiceSessionEntry entry) {
+        return FdsEvent.builder()
+                .sessionId(entry.getSessionId())
+                .callDirection(entry.getDirection().name())
+                .campaignId(entry.getCampaignId())
+                .eventType(event)
+                .fdsFlag(fdsFlag)
+                .sttText(sttText)
+                .fdsScore(fdsScore)
+                .reason(reason)
+                .metadata(metadata)
+                .timestamp(java.time.Instant.now())
+                .build();
+    }
 
     public FdsEvent toFdsEvent(String sessionId) {
         return FdsEvent.builder()

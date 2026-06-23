@@ -1,7 +1,28 @@
+/**
+ *
+ *
+ * <pre>
+ * <b>Description  : CTI/ACD REST 클라이언트</b>
+ * <b>Project Name : WooriCardCallBotRelayServer</b>
+ * package  : com.woori.woorirelay.integration.cti
+ * </pre>
+ *
+ * @author : RosieOh
+ * @version : 1.0
+ * @since
+ *     <pre>
+ * Modification Information
+ *    수정일              수정자                수정내용
+ * ---------------   ---------------   ----------------------------
+ *  2026.06.22        RosieOh     최초생성
+ *        </pre>
+ */
+
 package com.woori.woorirelay.integration.cti;
 
 import com.woori.woorirelay.config.RelayProperties;
 import com.woori.woorirelay.constant.CtiConstants;
+import com.woori.woorirelay.model.CallDirection;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.web.client.RestTemplateBuilder;
@@ -14,12 +35,9 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.Map;
 
-/**
- * CTI/ACD 상담원 라우팅 REST 클라이언트.
- * 운영: Contact Center API URL을 woori.relay.cti.base-url에 설정.
- */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -33,8 +51,9 @@ public class CtiRoutingClient {
 
         if (!cti.isEnabled()) {
             log.warn(
-                    "[CTI:Mock] Escalation queued sessionId={} fdsFlag={} stt={}",
-                    request.getSessionId(),
+                    "[CTI:Mock] Escalation queued registryKey={} direction={} fdsFlag={} stt={}",
+                    request.getRegistryKey(),
+                    request.getCallDirection(),
                     request.getFdsFlag(),
                     request.getLastSttText()
             );
@@ -54,14 +73,16 @@ public class CtiRoutingClient {
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.set(CtiConstants.HEADER_CORRELATION_ID, request.getSessionId());
 
-        Map<String, Object> body = Map.of(
-                "sessionId", request.getSessionId(),
-                "priority", request.getPriority(),
-                "fdsFlag", request.getFdsFlag(),
-                "lastSttText", request.getLastSttText() != null ? request.getLastSttText() : "",
-                "reason", request.getReason() != null ? request.getReason() : "",
-                "eventType", request.getEventType() != null ? request.getEventType() : ""
-        );
+        Map<String, Object> body = new HashMap<>();
+        body.put("sessionId", request.getSessionId());
+        body.put("registryKey", request.getRegistryKey());
+        body.put("callDirection", request.getCallDirection() != null ? request.getCallDirection().name() : CallDirection.INBOUND.name());
+        body.put("campaignId", request.getCampaignId() != null ? request.getCampaignId() : "");
+        body.put("priority", request.getPriority());
+        body.put("fdsFlag", request.getFdsFlag());
+        body.put("lastSttText", request.getLastSttText() != null ? request.getLastSttText() : "");
+        body.put("reason", request.getReason() != null ? request.getReason() : "");
+        body.put("eventType", request.getEventType() != null ? request.getEventType() : "");
 
         String url = cti.getBaseUrl() + cti.getEscalationPath();
         try {
@@ -70,14 +91,15 @@ public class CtiRoutingClient {
                     new HttpEntity<>(body, headers),
                     Map.class
             );
-            log.info("[CTI] Escalation accepted sessionId={} status={}", request.getSessionId(), response.getStatusCode());
+            log.info("[CTI] Escalation accepted registryKey={} status={}",
+                    request.getRegistryKey(), response.getStatusCode());
             return CtiEscalationResponse.builder()
                     .accepted(response.getStatusCode().is2xxSuccessful())
                     .queueId(extractQueueId(response.getBody()))
                     .message("CTI escalation accepted")
                     .build();
         } catch (RestClientException ex) {
-            log.error("[CTI] Escalation failed sessionId={} url={}", request.getSessionId(), url, ex);
+            log.error("[CTI] Escalation failed registryKey={} url={}", request.getRegistryKey(), url, ex);
             return CtiEscalationResponse.builder()
                     .accepted(false)
                     .message(ex.getMessage())

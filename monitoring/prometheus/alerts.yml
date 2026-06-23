@@ -1,0 +1,60 @@
+groups:
+  - name: woori-callbot
+    rules:
+      - alert: ScrapeTargetDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Prometheus scrape target down ({{ $labels.job }})"
+          description: "Target {{ $labels.instance }} job={{ $labels.job }} is unreachable."
+
+      - alert: CtiOutboxPending
+        expr: sum(relay_cti_outbox_pending{application="WooriRelay"}) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CTI escalation outbox has pending items"
+          description: "Pending CTI outbox count is {{ $value }}."
+
+      - alert: FdsDlqPublished
+        expr: increase(fds_kafka_dlq_published_total{application="WooriFdsGateway"}[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "FDS events published to DLQ"
+          description: "{{ $value }} DLQ messages in the last 5 minutes."
+
+      - alert: SessionCountDrift
+        expr: |
+          abs(
+            sum(relay_active_sessions{application="WooriRelay", direction!~"inbound|outbound"})
+            - sum(callbot_active_sessions{application="WooriCallbotGateway"})
+          ) > 2
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Relay vs Callbot active session drift"
+          description: "Session count difference exceeded threshold for 10m (delta={{ $value }})."
+
+      - alert: KafkaConsumerLagHigh
+        expr: fds_kafka_consumer_lag{application="WooriFdsGateway"} > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "FDS Kafka consumer lag high"
+          description: "Consumer lag is {{ $value }} messages."
+
+      - alert: GatewayConnectionFailures
+        expr: increase(relay_gateway_connection_failures_total{application="WooriRelay"}[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Relay → Gateway WebSocket connection failures"
+          description: "{{ $value }} failures in 5 minutes."

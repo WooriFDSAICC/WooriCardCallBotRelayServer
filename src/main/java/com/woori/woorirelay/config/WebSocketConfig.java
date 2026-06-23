@@ -1,3 +1,23 @@
+/**
+ *
+ *
+ * <pre>
+ * <b>Description  : WebSocket 핸들러 및 컨테이너 설정</b>
+ * <b>Project Name : WooriCardCallBotRelayServer</b>
+ * package  : com.woori.woorirelay.config
+ * </pre>
+ *
+ * @author : RosieOh
+ * @version : 1.0
+ * @since
+ *     <pre>
+ * Modification Information
+ *    수정일              수정자                수정내용
+ * ---------------   ---------------   ----------------------------
+ *  2026.06.22        RosieOh     최초생성
+ *        </pre>
+ */
+
 package com.woori.woorirelay.config;
 
 import com.woori.woorirelay.constant.WebSocketConstants;
@@ -20,8 +40,13 @@ public class WebSocketConfig implements WebSocketConfigurer {
 
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
+        String[] allowedOrigins = relayProperties.getWebsocket().getAllowedOrigins().split(",");
+        registry.addHandler(voiceIntermediaryHandler, WebSocketConstants.VOICE_INBOUND_PATH)
+                .setAllowedOrigins(allowedOrigins);
+        registry.addHandler(voiceIntermediaryHandler, WebSocketConstants.VOICE_OUTBOUND_PATH)
+                .setAllowedOrigins(allowedOrigins);
         registry.addHandler(voiceIntermediaryHandler, WebSocketConstants.VOICE_STREAM_PATH)
-                .setAllowedOrigins(relayProperties.getWebsocket().getAllowedOrigins());
+                .setAllowedOrigins(allowedOrigins);
     }
 
     @Bean

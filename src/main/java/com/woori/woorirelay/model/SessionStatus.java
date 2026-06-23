@@ -1,3 +1,23 @@
+/**
+ *
+ *
+ * <pre>
+ * <b>Description  : 세션 상태 열거형</b>
+ * <b>Project Name : WooriCardCallBotRelayServer</b>
+ * package  : com.woori.woorirelay.model
+ * </pre>
+ *
+ * @author : RosieOh
+ * @version : 1.0
+ * @since
+ *     <pre>
+ * Modification Information
+ *    수정일              수정자                수정내용
+ * ---------------   ---------------   ----------------------------
+ *  2026.06.22        RosieOh     최초생성
+ *        </pre>
+ */
+
 package com.woori.woorirelay.model;
 
 public enum SessionStatus {

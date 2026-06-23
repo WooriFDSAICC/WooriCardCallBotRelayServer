@@ -3,7 +3,7 @@ services:
     image: redis:7-alpine
     container_name: woori-redis
     ports:
-      - "6379:6379"
+      - "6380:6379"
     volumes:
       - redis-data:/data
     command: redis-server --appendonly yes
@@ -15,7 +15,7 @@ services:
     restart: unless-stopped
 
   kafka:
-    image: bitnami/kafka:3.9
+    image: bitnamilegacy/kafka:3.9.0
     container_name: woori-kafka
     ports:
       - "9092:9092"
@@ -70,7 +70,7 @@ services:
 
   callbot-gateway:
     build:
-      context: ../WooriCallbotGateway
+      context: ../WooriCardCallBotGateway
       dockerfile: Dockerfile
     container_name: woori-callbot-gateway
     ports:
@@ -81,8 +81,15 @@ services:
       ESCALATION_CHUNK_THRESHOLD: 20
       PARTIAL_RESULT_INTERVAL: 5
       METRICS_ENABLED: "true"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      OTEL_ENABLED: "true"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318/v1/traces
+      OTEL_SERVICE_NAME: WooriCallbotGateway
     depends_on:
       triton:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
@@ -94,7 +101,7 @@ services:
 
   fds-gateway:
     build:
-      context: ../WooriFdsGateway
+      context: ../WooriCardFDSGateway
       dockerfile: Dockerfile
     container_name: woori-fds-gateway
     ports:
@@ -120,6 +127,9 @@ services:
       KAFKA_DLQ_TOPIC: wooricard-fds-events-dlq
       BLOCK_SCORE_THRESHOLD: 90
       ALERT_SCORE_THRESHOLD: 70
+      OTEL_ENABLED: "true"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318/v1/traces
+      OTEL_SERVICE_NAME: WooriFdsGateway
     depends_on:
       redis:
         condition: service_healthy
@@ -148,8 +158,12 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       KAFKA_FDS_TOPIC: wooricard-fds-events
       FASTAPI_WS_BASE_URL: ws://callbot-gateway:8000/v1/stream
+      FASTAPI_WS_INBOUND_BASE_URL: ws://callbot-gateway:8000/v1/stream/inbound
+      FASTAPI_WS_OUTBOUND_BASE_URL: ws://callbot-gateway:8000/v1/stream/outbound
       CTI_ENABLED: "true"
       CTI_BASE_URL: http://cti-mock:9000
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318/v1/traces
+      OTEL_TRACES_SAMPLER_ARG: "1.0"
     depends_on:
       redis:
         condition: service_healthy
@@ -161,16 +175,43 @@ services:
         condition: service_healthy
       cti-mock:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/actuator/health | grep -q UP || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: woori-alertmanager
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    restart: unless-stopped
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: woori-jaeger
+    ports:
+      - "16686:16686"
+      - "4318:4318"
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
     restart: unless-stopped
 
   prometheus:
     image: prom/prometheus:v2.55.0
     container_name: woori-prometheus
     ports:
-      - "9090:9090"
+      - "9091:9090"
     volumes:
-      - ../WooriRelay/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
     depends_on:
+      - alertmanager
       - woori-relay
       - callbot-gateway
       - fds-gateway
@@ -187,8 +228,8 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: admin
       GF_USERS_ALLOW_SIGN_UP: "false"
     volumes:
-      - ../WooriRelay/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
-      - ../WooriRelay/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
     depends_on:
       - prometheus
     restart: unless-stopped

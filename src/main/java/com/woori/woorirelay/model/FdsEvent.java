@@ -1,6 +1,26 @@
+/**
+ *
+ *
+ * <pre>
+ * <b>Description  : Kafka FDS 이벤트 DTO</b>
+ * <b>Project Name : WooriCardCallBotRelayServer</b>
+ * package  : com.woori.woorirelay.model
+ * </pre>
+ *
+ * @author : RosieOh
+ * @version : 1.0
+ * @since
+ *     <pre>
+ * Modification Information
+ *    수정일              수정자                수정내용
+ * ---------------   ---------------   ----------------------------
+ *  2026.06.22        RosieOh     최초생성
+ *        </pre>
+ */
+
 package com.woori.woorirelay.model;
 
-import com.woori.woorirelay.constant.StreamEventTypes;
+import com.woori.woorirelay.constant.IntegrationContracts;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
@@ -20,6 +40,8 @@ import java.util.Map;
 public class FdsEvent {
 
     private String sessionId;
+    private String callDirection;
+    private String campaignId;
     private String eventType;
     private String fdsFlag;
     private String sttText;
@@ -28,10 +50,10 @@ public class FdsEvent {
     private Instant timestamp;
     private Map<String, Object> metadata;
     @Builder.Default
-    private String schemaVersion = "1.0";
+    private String schemaVersion = IntegrationContracts.SCHEMA_VERSION;
 
     public boolean requiresEscalation() {
-        if (StreamEventTypes.AGENT_ESCALATION.equalsIgnoreCase(eventType)) {
+        if (IntegrationContracts.EVENT_AGENT_ESCALATION.equalsIgnoreCase(eventType)) {
             return true;
         }
         return FdsFlag.CRITICAL.name().equalsIgnoreCase(fdsFlag);

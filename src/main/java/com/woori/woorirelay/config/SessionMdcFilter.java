@@ -1,3 +1,23 @@
+/**
+ *
+ *
+ * <pre>
+ * <b>Description  : HTTP 요청 MDC correlationId 주입 필터</b>
+ * <b>Project Name : WooriCardCallBotRelayServer</b>
+ * package  : com.woori.woorirelay.config
+ * </pre>
+ *
+ * @author : RosieOh
+ * @version : 1.0
+ * @since
+ *     <pre>
+ * Modification Information
+ *    수정일              수정자                수정내용
+ * ---------------   ---------------   ----------------------------
+ *  2026.06.22        RosieOh     최초생성
+ *        </pre>
+ */
+
 package com.woori.woorirelay.config;
 
 import jakarta.servlet.FilterChain;
@@ -24,15 +44,13 @@ public class SessionMdcFilter extends OncePerRequestFilter {
     private static final String SESSION_ID = "sessionId";
 
     @Override
-    protected void doFilterInternal(
-            HttpServletRequest request,
-            HttpServletResponse response,
-            FilterChain filterChain
-    ) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         String correlationId = request.getHeader("X-Correlation-Id");
+
         if (correlationId == null || correlationId.isBlank()) {
             correlationId = UUID.randomUUID().toString().substring(0, 8);
         }
+
         MDC.put(CORRELATION_ID, correlationId);
         response.setHeader("X-Correlation-Id", correlationId);
 
