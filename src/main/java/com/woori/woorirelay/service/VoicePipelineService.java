@@ -35,6 +35,7 @@ import com.woori.woorirelay.config.RelayProperties;
 import com.woori.woorirelay.support.PiiMaskingUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.web.socket.BinaryMessage;
 import org.springframework.web.socket.TextMessage;
@@ -43,6 +44,7 @@ import org.springframework.web.socket.WebSocketSession;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
 
 @Slf4j
 @Service
@@ -58,6 +60,8 @@ public class VoicePipelineService {
     private final RelayProperties relayProperties;
     private final RelayMetrics relayMetrics;
     private final ObjectMapper objectMapper;
+    @Qualifier("audioForwardExecutor")
+    private final ExecutorService audioForwardExecutor;
 
     public void onSessionStarted(VoiceSessionEntry entry) {
         redisStateService.createSession(entry.getDirection(), entry.getSessionId(), entry.getCampaignId());
@@ -132,21 +136,65 @@ public class VoicePipelineService {
             return true;
         }
 
-        try {
-            if (entry.getBackendHandler() != null) {
-                entry.getBackendHandler().markSttWaitStarted();
+        // 백프레셔: WS read 스레드는 큐 적재만. 버퍼는 컨테이너 소유라 반드시 복사한다.
+        byte[] chunk = new byte[remaining];
+        payload.duplicate().get(chunk);
+        if (!entry.offerAudio(chunk, relayProperties.getAudioQueueCapacity())) {
+            relayMetrics.recordAudioChunkDropped();
+            if (log.isDebugEnabled()) {
+                log.debug("[Pipeline] Audio queue full — dropping chunk registryKey={} bytes={}",
+                        registryKey, remaining);
             }
-            backendSession.sendMessage(new BinaryMessage(payload.asReadOnlyBuffer()));
-            return true;
-        } catch (IOException ex) {
-            log.error("[Pipeline] Audio forward failed registryKey={}", registryKey, ex);
-            lifecycleService.terminateSession(
-                    registryKey,
-                    RelayCloseStatus.SERVER_ERROR,
-                    TerminationReason.AUDIO_FORWARD_FAILURE,
-                    false
-            );
-            return false;
+            return true; // 드랍하되 통화는 유지
+        }
+        scheduleDrain(entry);
+        return true;
+    }
+
+    private void scheduleDrain(VoiceSessionEntry entry) {
+        if (entry.getAudioDraining().compareAndSet(false, true)) {
+            audioForwardExecutor.execute(() -> drainAudio(entry));
+        }
+    }
+
+    /** 세션당 단일 드레인 태스크(프레임 순서 보장). blocking send 는 여기서 발생한다. */
+    private void drainAudio(VoiceSessionEntry entry) {
+        String registryKey = entry.getRegistryKey();
+        try {
+            byte[] chunk;
+            while ((chunk = entry.pollAudio()) != null) {
+                if (!entry.isActive()) {
+                    entry.clearAudio();
+                    return;
+                }
+                WebSocketSession backend = entry.getBackendSession();
+                if (backend == null || !backend.isOpen()) {
+                    entry.clearAudio();
+                    return;
+                }
+                try {
+                    if (entry.getBackendHandler() != null) {
+                        entry.getBackendHandler().markSttWaitStarted();
+                    }
+                    backend.sendMessage(new BinaryMessage(ByteBuffer.wrap(chunk)));
+                } catch (IOException ex) {
+                    log.error("[Pipeline] Audio forward failed registryKey={}", registryKey, ex);
+                    entry.clearAudio();
+                    lifecycleService.terminateSession(
+                            registryKey,
+                            RelayCloseStatus.SERVER_ERROR,
+                            TerminationReason.AUDIO_FORWARD_FAILURE,
+                            false
+                    );
+                    return;
+                }
+            }
+        } finally {
+            entry.getAudioDraining().set(false);
+            // 드레인 종료와 신규 적재 사이 경합 보정: 남은 게 있으면 재스케줄.
+            if (!entry.audioQueueEmpty() && entry.isActive()) {
+                scheduleDrain(entry);
+            }
         }
     }
 
@@ -160,11 +208,16 @@ public class VoicePipelineService {
             FastApiStreamResult result = objectMapper.readValue(jsonPayload, FastApiStreamResult.class);
 
             // 봇 발화 제어 이벤트는 FDS 파이프라인을 타지 않고 TTS Worker 로 라우팅한다.
+            // (TTS 발화 텍스트는 봇 스크립트이므로 마스킹 대상이 아니며, 이 분기에서 먼저 반환한다.)
             if (IntegrationContracts.EVENT_TTS_SAY.equals(result.getEvent())
                     || IntegrationContracts.EVENT_TTS_STOP.equals(result.getEvent())) {
                 routeTtsControl(entry, result);
                 return;
             }
+
+            // H2: 고객 STT 원문에는 카드/주민번호가 포함될 수 있으므로 Redis 저장·Kafka 발행 전
+            //     반드시 PII 를 레닥션한다. 이후 경로(Redis/Kafka)는 레닥션된 값만 사용한다.
+            result.setSttText(PiiMaskingUtil.redactPii(result.getSttText()));
 
             FdsEvent event = result.toFdsEvent(entry);
 
