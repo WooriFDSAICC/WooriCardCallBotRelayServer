@@ -44,11 +44,15 @@ public final class IntegrationContracts {
     public static final String EVENT_STT_PARTIAL = "STT_PARTIAL";
     public static final String EVENT_AGENT_ESCALATION = "AGENT_ESCALATION";
     public static final String EVENT_SESSION_ENDED = "SESSION_ENDED";
+    // 봇 발화 제어(Gateway 결정 → Relay 가 TTS Worker 로 라우팅). FDS 파이프라인 비대상.
+    public static final String EVENT_TTS_SAY = "TTS_SAY";
+    public static final String EVENT_TTS_STOP = "TTS_STOP";
 
     // ── Triton Models (AI팀 배포) ──
     public static final String TRITON_MODEL_STT = "stt_streaming";
     public static final String TRITON_MODEL_ASD = "asd_voiceprint";
     public static final String TRITON_MODEL_FDS = "fds_lgbm";
+    public static final String TRITON_MODEL_TTS = "tts_streaming";  // 봇 발화 다운링크(gRPC decoupled)
 
     // ── Feature Store Redis ──
     public static final String FEATURE_STORE_KEY_PREFIX = "fds:feature:";
