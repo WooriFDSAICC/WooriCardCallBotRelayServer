@@ -73,6 +73,15 @@ public class CtiRoutingClient {
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.set(CtiConstants.HEADER_CORRELATION_ID, request.getSessionId());
 
+        // H5: CTI 인증 — 위조 에스컬레이션 방지용 토큰/API키 주입.
+        RelayProperties.CtiAuth auth = cti.getAuth();
+        if (auth.isConfigured()) {
+            headers.set(auth.getHeaderName(), auth.headerValue());
+        } else if (auth.isEnabled()) {
+            log.error("[CTI] Auth enabled but token missing — sending unauthenticated request registryKey={}",
+                    request.getRegistryKey());
+        }
+
         Map<String, Object> body = new HashMap<>();
         body.put("sessionId", request.getSessionId());
         body.put("registryKey", request.getRegistryKey());
