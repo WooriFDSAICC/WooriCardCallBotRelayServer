@@ -20,6 +20,7 @@
 
 package com.woori.woorirelay.handler;
 
+import com.woori.woorirelay.config.RelayMetrics;
 import com.woori.woorirelay.constant.RelayCloseStatus;
 import com.woori.woorirelay.constant.WebSocketConstants;
 import com.woori.woorirelay.model.VoiceSessionHandshake;
@@ -46,6 +47,7 @@ public class VoiceIntermediaryHandler extends BinaryWebSocketHandler {
     private final VoicePipelineService pipelineService;
     private final SessionHandshakeExtractor handshakeExtractor;
     private final DistributedSessionOwnershipService ownershipService;
+    private final RelayMetrics relayMetrics;
 
     @Override
     public void afterConnectionEstablished(WebSocketSession clientSession) throws Exception {
@@ -53,6 +55,14 @@ public class VoiceIntermediaryHandler extends BinaryWebSocketHandler {
         if (handshake == null) {
             log.warn("[Handler] Invalid handshake, closing wsId={}", clientSession.getId());
             clientSession.close(RelayCloseStatus.BAD_DATA);
+            return;
+        }
+
+        // 인스턴스 세션 상한 초과 시 신규 연결 거절(자원고갈/DoS 방지).
+        if (!sessionRegistry.hasCapacity()) {
+            relayMetrics.recordSessionRejection();
+            log.warn("[Handler] Session capacity reached, rejecting registryKey={}", handshake.getRegistryKey());
+            clientSession.close(RelayCloseStatus.OVERLOADED);
             return;
         }
 
