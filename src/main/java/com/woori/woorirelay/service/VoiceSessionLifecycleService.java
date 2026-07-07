@@ -84,6 +84,7 @@ public class VoiceSessionLifecycleService {
         kafkaProducerService.publishSessionEnded(entry, status.toString(), state);
 
         sessionCloser.closeQuietly(entry.getBackendSession(), status);
+        sessionCloser.closeQuietly(entry.getWorkerSession(), status);
         sessionCloser.closeQuietly(entry.getClientSession(), status);
 
         if (!fromEscalation && !entry.getEscalated().get()) {
