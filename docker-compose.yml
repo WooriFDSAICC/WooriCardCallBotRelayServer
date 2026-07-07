@@ -54,6 +54,50 @@ services:
       start_period: 5s
     restart: unless-stopped
 
+  # 봇 발화 TTS — Triton Python backend(decoupled/gRPC).
+  # 기본 MOCK(사인톤, GPU 불필요). 실 엔진은 TTS_MOCK 제거 + deploy.resources GPU 예약.
+  tts-triton:
+    build:
+      context: ..
+      dockerfile: WooriTtsTriton/Dockerfile
+    container_name: woori-tts-triton
+    environment:
+      TTS_MOCK: "1"
+    ports:
+      - "8011:8001"   # gRPC (host 8011 → 8001, mock triton 8001 과 호스트 충돌 회피)
+      - "8012:8002"   # metrics
+    # 실 엔진 사용 시:
+    # environment: {}   # TTS_MOCK 제거
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices: [{ driver: nvidia, count: 1, capabilities: [gpu] }]
+    # volumes:
+    #   - ${HOME}/.cache/huggingface:/root/.cache/huggingface
+    restart: unless-stopped
+
+  # 봇 발화 독립 워커 — Relay↔Worker WS 제어 + Triton tts_streaming 다운링크.
+  tts-worker:
+    build:
+      context: ../WooriCardCallBotTtsWorker
+      dockerfile: Dockerfile
+    container_name: woori-tts-worker
+    environment:
+      TRITON_TTS_GRPC_URL: tts-triton:8001
+      PORT: 8020
+    ports:
+      - "8020:8020"
+    depends_on:
+      tts-triton:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8020/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
   cti-mock:
     build:
       context: ../WooriCtiMock
@@ -83,6 +127,10 @@ services:
       METRICS_ENABLED: "true"
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      # ── TTS 봇 발화 '결정' 발행(오디오 생성은 TTS Worker 담당) ──
+      TTS_ENABLED: "true"
+      TTS_SPEAK_OUTBOUND_OPENING: "true"
+      TTS_BARGE_IN_ENABLED: "true"
       OTEL_ENABLED: "true"
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318/v1/traces
       OTEL_SERVICE_NAME: WooriCallbotGateway
@@ -160,6 +208,11 @@ services:
       FASTAPI_WS_BASE_URL: ws://callbot-gateway:8000/v1/stream
       FASTAPI_WS_INBOUND_BASE_URL: ws://callbot-gateway:8000/v1/stream/inbound
       FASTAPI_WS_OUTBOUND_BASE_URL: ws://callbot-gateway:8000/v1/stream/outbound
+      # ── TTS Worker(봇 발화 다운링크) ──
+      TTS_WORKER_ENABLED: "true"
+      TTS_WORKER_WS_BASE_URL: ws://tts-worker:8020/v1/tts
+      TTS_WORKER_WS_INBOUND_BASE_URL: ws://tts-worker:8020/v1/tts/inbound
+      TTS_WORKER_WS_OUTBOUND_BASE_URL: ws://tts-worker:8020/v1/tts/outbound
       CTI_ENABLED: "true"
       CTI_BASE_URL: http://cti-mock:9000
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318/v1/traces
@@ -170,6 +223,8 @@ services:
       kafka:
         condition: service_healthy
       callbot-gateway:
+        condition: service_healthy
+      tts-worker:
         condition: service_healthy
       fds-gateway:
         condition: service_healthy
