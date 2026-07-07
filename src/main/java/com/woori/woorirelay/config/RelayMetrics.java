@@ -50,8 +50,12 @@ public class RelayMetrics {
             VoiceSessionRegistry sessionRegistry,
             CtiEscalationOutboxService outboxService
     ) {
+        // 총합 게이지도 direction 태그를 부여해(값 "all") 방향별 게이지와 태그 키 집합을 일치시킨다.
+        // Micrometer/Prometheus 는 동일 이름 메터의 태그 키가 다르면 등록을 거부하므로 필수.
+        // README 패널의 total 쿼리 direction!~"inbound|outbound" 는 이 "all" 시리즈를 선택한다.
         Gauge.builder("relay.active_sessions", sessionRegistry, VoiceSessionRegistry::activeSessionCount)
                 .description("Active voice WebSocket sessions on this node")
+                .tags(Tags.of("direction", "all"))
                 .register(meterRegistry);
 
         for (CallDirection direction : CallDirection.values()) {
