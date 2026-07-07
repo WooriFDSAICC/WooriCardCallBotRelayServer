@@ -29,6 +29,11 @@ woori:
     fast-api-ws-base-url: ${FASTAPI_WS_BASE_URL:ws://localhost:8000/v1/stream}
     fast-api-ws-inbound-base-url: ${FASTAPI_WS_INBOUND_BASE_URL:ws://localhost:8000/v1/stream/inbound}
     fast-api-ws-outbound-base-url: ${FASTAPI_WS_OUTBOUND_BASE_URL:ws://localhost:8000/v1/stream/outbound}
+    tts-worker:
+      enabled: ${TTS_WORKER_ENABLED:false}
+      base-url: ${TTS_WORKER_WS_BASE_URL:ws://localhost:8020/v1/tts}
+      inbound-base-url: ${TTS_WORKER_WS_INBOUND_BASE_URL:ws://localhost:8020/v1/tts/inbound}
+      outbound-base-url: ${TTS_WORKER_WS_OUTBOUND_BASE_URL:ws://localhost:8020/v1/tts/outbound}
     kafka-topic: ${KAFKA_FDS_TOPIC:wooricard-fds-events}  # default = IntegrationContracts.TOPIC_FDS_EVENTS
     redis-session-key-prefix: "wooricard:session:"
     max-binary-chunk-bytes: ${MAX_BINARY_CHUNK_BYTES:65536}
