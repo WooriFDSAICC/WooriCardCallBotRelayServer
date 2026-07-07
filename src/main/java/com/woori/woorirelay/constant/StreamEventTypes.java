@@ -32,4 +32,6 @@ public final class StreamEventTypes {
     public static final String STT_PARTIAL = IntegrationContracts.EVENT_STT_PARTIAL;
     public static final String AGENT_ESCALATION = IntegrationContracts.EVENT_AGENT_ESCALATION;
     public static final String SESSION_ENDED = IntegrationContracts.EVENT_SESSION_ENDED;
+    public static final String TTS_SAY = IntegrationContracts.EVENT_TTS_SAY;
+    public static final String TTS_STOP = IntegrationContracts.EVENT_TTS_STOP;
 }

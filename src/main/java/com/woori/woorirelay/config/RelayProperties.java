@@ -45,11 +45,19 @@ public class RelayProperties {
     private WebSocket websocket = new WebSocket();
     private Cti cti = new Cti();
     private DistributedSession distributedSession = new DistributedSession();
+    private TtsWorker ttsWorker = new TtsWorker();
 
     public String resolveFastApiWsBaseUrl(CallDirection direction) {
         return switch (direction) {
             case OUTBOUND -> firstNonBlank(fastApiWsOutboundBaseUrl, fastApiWsBaseUrl);
             case INBOUND -> firstNonBlank(fastApiWsInboundBaseUrl, fastApiWsBaseUrl);
+        };
+    }
+
+    public String resolveTtsWorkerWsBaseUrl(CallDirection direction) {
+        return switch (direction) {
+            case OUTBOUND -> firstNonBlank(ttsWorker.getOutboundBaseUrl(), ttsWorker.getBaseUrl());
+            case INBOUND -> firstNonBlank(ttsWorker.getInboundBaseUrl(), ttsWorker.getBaseUrl());
         };
     }
 
@@ -66,6 +74,15 @@ public class RelayProperties {
         private String allowedOrigins = "*";
         private int maxTextMessageBufferSize = RelayConstants.DEFAULT_WS_TEXT_BUFFER_SIZE;
         private int maxBinaryMessageBufferSize = RelayConstants.DEFAULT_WS_BINARY_BUFFER_SIZE;
+    }
+
+    @Getter
+    @Setter
+    public static class TtsWorker {
+        private boolean enabled = false;
+        private String baseUrl = RelayConstants.DEFAULT_TTS_WORKER_WS_BASE_URL;
+        private String inboundBaseUrl = RelayConstants.DEFAULT_TTS_WORKER_WS_INBOUND_BASE_URL;
+        private String outboundBaseUrl = RelayConstants.DEFAULT_TTS_WORKER_WS_OUTBOUND_BASE_URL;
     }
 
     @Getter

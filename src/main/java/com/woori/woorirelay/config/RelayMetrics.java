@@ -38,6 +38,8 @@ public class RelayMetrics {
     private final Counter gatewayConnectionFailures;
     private final Timer gatewaySttResponseSeconds;
     private final Counter gatewayEscalationsTotal;
+    private final Counter ttsDownlinkFrames;
+    private final Counter ttsDownlinkBytes;
 
     public RelayMetrics(
             MeterRegistry meterRegistry,
@@ -70,6 +72,14 @@ public class RelayMetrics {
         this.gatewayEscalationsTotal = Counter.builder("relay.gateway_escalations_total")
                 .description("Agent escalation events received from Gateway")
                 .register(meterRegistry);
+
+        this.ttsDownlinkFrames = Counter.builder("relay.tts_downlink_frames_total")
+                .description("Bot TTS audio frames relayed downlink to the caller")
+                .register(meterRegistry);
+
+        this.ttsDownlinkBytes = Counter.builder("relay.tts_downlink_bytes_total")
+                .description("Bot TTS audio bytes relayed downlink to the caller")
+                .register(meterRegistry);
     }
 
     public void recordGatewayConnectionFailure() {
@@ -82,5 +92,10 @@ public class RelayMetrics {
 
     public void recordGatewayEscalation() {
         gatewayEscalationsTotal.increment();
+    }
+
+    public void recordTtsDownlink(int bytes) {
+        ttsDownlinkFrames.increment();
+        ttsDownlinkBytes.increment(bytes);
     }
 }

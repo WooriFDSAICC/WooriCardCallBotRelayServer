@@ -40,6 +40,8 @@ public class VoiceSessionEntry {
     private final WebSocketSession clientSession;
     private volatile WebSocketSession backendSession;
     private volatile com.woori.woorirelay.handler.FastApiBackendHandler backendHandler;
+    private volatile WebSocketSession workerSession;
+    private volatile com.woori.woorirelay.handler.TtsWorkerBackendHandler workerHandler;
     private final AtomicBoolean escalated = new AtomicBoolean(false);
     private final AtomicBoolean closed = new AtomicBoolean(false);
     private final Object lifecycleLock = new Object();
@@ -63,6 +65,14 @@ public class VoiceSessionEntry {
     ) {
         this.backendSession = backendSession;
         this.backendHandler = backendHandler;
+    }
+
+    public void bindWorkerSession(
+            WebSocketSession workerSession,
+            com.woori.woorirelay.handler.TtsWorkerBackendHandler workerHandler
+    ) {
+        this.workerSession = workerSession;
+        this.workerHandler = workerHandler;
     }
 
     public boolean isActive() {

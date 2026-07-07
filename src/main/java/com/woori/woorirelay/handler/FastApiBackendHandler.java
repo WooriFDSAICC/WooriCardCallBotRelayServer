@@ -33,7 +33,8 @@ import java.util.function.Consumer;
 
 /**
  * FastAPI AI Gateway → SpringBoot 방향 WebSocket Text 수신 핸들러.
- * STT / FDS JSON 결과를 VoiceIntermediaryHandler 콜백으로 전달한다.
+ * STT / FDS / TTS 결정(JSON) 결과를 VoicePipelineService 콜백으로 전달한다.
+ * (봇 발화 오디오는 별도 TTS Worker 백엔드에서 수신 — {@code TtsWorkerBackendHandler})
  */
 @Slf4j
 public class FastApiBackendHandler extends TextWebSocketHandler {
