@@ -28,6 +28,12 @@ public final class RelayConstants {
     public static final long FASTAPI_CONNECT_TIMEOUT_SECONDS = 10L;
     public static final long REDIS_SESSION_TTL_HOURS = 24L;
 
+    // ── TTS Worker(봇 발화 다운링크) ──
+    public static final long TTS_WORKER_CONNECT_TIMEOUT_SECONDS = 5L;
+    public static final String DEFAULT_TTS_WORKER_WS_BASE_URL = "ws://localhost:8020/v1/tts";
+    public static final String DEFAULT_TTS_WORKER_WS_INBOUND_BASE_URL = "ws://localhost:8020/v1/tts/inbound";
+    public static final String DEFAULT_TTS_WORKER_WS_OUTBOUND_BASE_URL = "ws://localhost:8020/v1/tts/outbound";
+
     public static final String DEFAULT_KAFKA_TOPIC = IntegrationContracts.TOPIC_FDS_EVENTS;
     public static final String DEFAULT_REDIS_SESSION_KEY_PREFIX = "wooricard:session:";
     public static final String DEFAULT_FASTAPI_WS_BASE_URL = "ws://localhost:8000/v1/stream";
