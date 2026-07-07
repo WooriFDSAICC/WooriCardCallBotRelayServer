@@ -20,9 +20,11 @@
 
 package com.woori.woorirelay.registry;
 
+import com.woori.woorirelay.config.RelayProperties;
 import com.woori.woorirelay.model.CallDirection;
 import com.woori.woorirelay.session.VoiceSessionEntry;
 import com.woori.woorirelay.support.SessionRegistryKeys;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketSession;
@@ -34,11 +36,24 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class VoiceSessionRegistry {
 
+    private final RelayProperties relayProperties;
     private final ConcurrentHashMap<String, VoiceSessionEntry> sessions = new ConcurrentHashMap<>();
 
+    /** 인스턴스당 세션 상한 도달 여부(0 = 무제한). DoS/자원고갈 방지. */
+    public boolean hasCapacity() {
+        int max = relayProperties.getMaxSessionsPerInstance();
+        return max <= 0 || sessions.size() < max;
+    }
+
     public boolean registerIfAbsent(VoiceSessionEntry entry) {
+        int max = relayProperties.getMaxSessionsPerInstance();
+        if (max > 0 && sessions.size() >= max) {
+            log.warn("[Registry] Capacity reached ({}), rejecting registryKey={}", max, entry.getRegistryKey());
+            return false;
+        }
         VoiceSessionEntry previous = sessions.putIfAbsent(entry.getRegistryKey(), entry);
         if (previous != null) {
             log.warn("[Registry] Duplicate session rejected registryKey={}", entry.getRegistryKey());

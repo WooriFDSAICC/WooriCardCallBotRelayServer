@@ -36,6 +36,16 @@ public final class RelayCloseStatus {
             WebSocketConstants.CLOSE_REASON_DUPLICATE_SESSION
     );
 
+    public static final CloseStatus UNAUTHORIZED = new CloseStatus(
+            WebSocketConstants.CLOSE_CODE_UNAUTHORIZED,
+            WebSocketConstants.CLOSE_REASON_UNAUTHORIZED
+    );
+
+    public static final CloseStatus OVERLOADED = new CloseStatus(
+            WebSocketConstants.CLOSE_CODE_OVERLOADED,
+            WebSocketConstants.CLOSE_REASON_OVERLOADED
+    );
+
     public static final CloseStatus SERVER_ERROR = CloseStatus.SERVER_ERROR;
     public static final CloseStatus BAD_DATA = CloseStatus.BAD_DATA;
     public static final CloseStatus NORMAL = CloseStatus.NORMAL;

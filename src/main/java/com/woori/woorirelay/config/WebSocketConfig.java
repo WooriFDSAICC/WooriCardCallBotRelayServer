@@ -36,16 +36,20 @@ import org.springframework.web.socket.server.standard.ServletServerContainerFact
 public class WebSocketConfig implements WebSocketConfigurer {
 
     private final VoiceIntermediaryHandler voiceIntermediaryHandler;
+    private final WebSocketHandshakeAuthInterceptor authInterceptor;
     private final RelayProperties relayProperties;
 
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         String[] allowedOrigins = relayProperties.getWebsocket().getAllowedOrigins().split(",");
         registry.addHandler(voiceIntermediaryHandler, WebSocketConstants.VOICE_INBOUND_PATH)
+                .addInterceptors(authInterceptor)
                 .setAllowedOrigins(allowedOrigins);
         registry.addHandler(voiceIntermediaryHandler, WebSocketConstants.VOICE_OUTBOUND_PATH)
+                .addInterceptors(authInterceptor)
                 .setAllowedOrigins(allowedOrigins);
         registry.addHandler(voiceIntermediaryHandler, WebSocketConstants.VOICE_STREAM_PATH)
+                .addInterceptors(authInterceptor)
                 .setAllowedOrigins(allowedOrigins);
     }
 

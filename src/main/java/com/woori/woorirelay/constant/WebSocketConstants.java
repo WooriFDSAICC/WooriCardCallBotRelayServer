@@ -37,7 +37,15 @@ public final class WebSocketConstants {
 
     public static final int CLOSE_CODE_ESCALATION = 4001;
     public static final int CLOSE_CODE_DUPLICATE_SESSION = 4002;
+    public static final int CLOSE_CODE_UNAUTHORIZED = 4003;
+    public static final int CLOSE_CODE_OVERLOADED = 4004;
 
     public static final String CLOSE_REASON_ESCALATION = "Agent escalation";
     public static final String CLOSE_REASON_DUPLICATE_SESSION = "Session already active";
+    public static final String CLOSE_REASON_UNAUTHORIZED = "Unauthorized";
+    public static final String CLOSE_REASON_OVERLOADED = "Server overloaded";
+
+    /** 핸드셰이크 토큰 전달 위치 — 헤더(Authorization) 또는 쿼리 파라미터. */
+    public static final String AUTH_HEADER = "Authorization";
+    public static final String AUTH_QUERY_PARAM = "token";
 }

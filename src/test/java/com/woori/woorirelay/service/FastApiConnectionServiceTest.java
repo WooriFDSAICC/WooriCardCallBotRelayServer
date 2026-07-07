@@ -41,7 +41,8 @@ class FastApiConnectionServiceTest {
                 properties,
                 null,
                 null,
-                null
+                null,
+                new FastApiCircuitBreaker(properties)
         );
 
         WebSocketSession clientSession = mock(WebSocketSession.class);

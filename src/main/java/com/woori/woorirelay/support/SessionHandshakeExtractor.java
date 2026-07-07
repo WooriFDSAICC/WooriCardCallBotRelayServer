@@ -42,7 +42,11 @@ import java.util.Locale;
 public class SessionHandshakeExtractor {
 
     public VoiceSessionHandshake extract(WebSocketSession session) {
-        URI uri = session.getUri();
+        return extractFromUri(session.getUri());
+    }
+
+    /** 핸드셰이크 URI 에서 직접 추출 — 인터셉터(세션 수립 전 단계)에서도 재사용한다. */
+    public VoiceSessionHandshake extractFromUri(URI uri) {
         if (uri == null) {
             return null;
         }

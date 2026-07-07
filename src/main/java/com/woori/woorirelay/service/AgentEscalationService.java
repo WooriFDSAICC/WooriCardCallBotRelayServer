@@ -23,17 +23,31 @@ package com.woori.woorirelay.service;
 import com.woori.woorirelay.model.FdsEvent;
 import com.woori.woorirelay.model.SessionState;
 import com.woori.woorirelay.session.VoiceSessionEntry;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
+
+import java.util.concurrent.ExecutorService;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class AgentEscalationService {
 
     private final CtiEscalationOutboxService ctiEscalationOutboxService;
+    private final ExecutorService ctiEscalationExecutor;
 
+    public AgentEscalationService(
+            CtiEscalationOutboxService ctiEscalationOutboxService,
+            @Qualifier("ctiEscalationExecutor") ExecutorService ctiEscalationExecutor
+    ) {
+        this.ctiEscalationOutboxService = ctiEscalationOutboxService;
+        this.ctiEscalationExecutor = ctiEscalationExecutor;
+    }
+
+    /**
+     * CTI 에스컬레이션 요청. HTTP 호출(최대 수 초)이 세션 종료/백엔드 read 스레드를 블로킹하지 않도록
+     * 전용 executor 에서 비동기 실행한다. state/event 는 호출 시점 스냅샷이라 세션 종료와 무관하게 유효.
+     */
     public void triggerAgentEscalation(VoiceSessionEntry entry, SessionState state, FdsEvent triggerEvent) {
         log.warn(
                 "[Escalation] Agent handoff requested registryKey={} direction={} status={} fdsFlag={} eventType={} reason={}",
@@ -44,6 +58,12 @@ public class AgentEscalationService {
                 triggerEvent.getEventType(),
                 triggerEvent.getReason()
         );
-        ctiEscalationOutboxService.triggerEscalation(entry, state, triggerEvent);
+        ctiEscalationExecutor.execute(() -> {
+            try {
+                ctiEscalationOutboxService.triggerEscalation(entry, state, triggerEvent);
+            } catch (Exception ex) {
+                log.error("[Escalation] Async CTI escalation failed registryKey={}", entry.getRegistryKey(), ex);
+            }
+        });
     }
 }

@@ -46,4 +46,11 @@ public final class RelayConstants {
 
     public static final long CTI_OUTBOX_TTL_HOURS = 24L;
     public static final long CTI_ESCALATION_DONE_TTL_HOURS = 24L;
+
+    // ── 오디오 백프레셔(업링크 큐) ──
+    public static final int DEFAULT_AUDIO_QUEUE_CAPACITY = 256;
+
+    // ── FDS 이벤트 Kafka Outbox(발행 실패 영속화·재시도) ──
+    public static final String DEFAULT_FDS_OUTBOX_KEY_PREFIX = "wooricard:fds:outbox:";
+    public static final long FDS_OUTBOX_TTL_HOURS = 24L;
 }
