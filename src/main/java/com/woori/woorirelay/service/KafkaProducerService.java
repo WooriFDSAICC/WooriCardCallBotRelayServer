@@ -51,26 +51,34 @@ public class KafkaProducerService {
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final ObjectMapper objectMapper;
     private final RelayProperties relayProperties;
+    private final FdsEventOutboxService fdsEventOutboxService;
 
     public void publishFdsEvent(FdsEvent event) {
         String topic = relayProperties.getKafkaTopic();
+        String key = partitionKey(event);
         String payload;
         try {
             payload = objectMapper.writeValueAsString(event);
         } catch (JsonProcessingException ex) {
+            // 직렬화 실패는 재시도해도 동일하므로 Outbox 로 보내 dead-letter 로 남긴다(유실 방지·가시성).
             log.error("[Kafka] JSON serialization failed sessionId={} eventType={}",
                     event.getSessionId(), event.getEventType(), ex);
+            fdsEventOutboxService.enqueueFailed(topic, key,
+                    "SERIALIZATION_FAILED:" + event.getSessionId() + ":" + event.getEventType(),
+                    ex.getMessage());
             return;
         }
 
         // sessionId를 partition key로 사용 → 동일 통화 이벤트 순서 보장
         CompletableFuture<SendResult<String, String>> future =
-                kafkaTemplate.send(topic, partitionKey(event), payload);
+                kafkaTemplate.send(topic, key, payload);
 
         future.whenComplete((result, throwable) -> {
             if (throwable != null) {
-                log.error("[Kafka] Publish failed sessionId={} topic={}",
+                // H3: 발행 실패 시 Outbox 영속화 → 스케줄러 재발행(at-least-once). 조용한 유실 제거.
+                log.error("[Kafka] Publish failed sessionId={} topic={} — routing to outbox",
                         event.getSessionId(), topic, throwable);
+                fdsEventOutboxService.enqueueFailed(topic, key, payload, throwable.getMessage());
                 return;
             }
             log.debug("[Kafka] Published sessionId={} topic={} offset={} eventType={} stt={}",
