@@ -40,6 +40,10 @@ public class RelayMetrics {
     private final Counter gatewayEscalationsTotal;
     private final Counter ttsDownlinkFrames;
     private final Counter ttsDownlinkBytes;
+    private final Counter wsAuthRejections;
+    private final Counter sessionRejections;
+    private final Counter audioChunksDropped;
+    private final Counter redisFailures;
 
     public RelayMetrics(
             MeterRegistry meterRegistry,
@@ -80,6 +84,38 @@ public class RelayMetrics {
         this.ttsDownlinkBytes = Counter.builder("relay.tts_downlink_bytes_total")
                 .description("Bot TTS audio bytes relayed downlink to the caller")
                 .register(meterRegistry);
+
+        this.wsAuthRejections = Counter.builder("relay.ws_auth_rejections_total")
+                .description("WebSocket handshakes rejected due to failed authentication")
+                .register(meterRegistry);
+
+        this.sessionRejections = Counter.builder("relay.session_rejections_total")
+                .description("New sessions rejected due to per-instance capacity limit")
+                .register(meterRegistry);
+
+        this.audioChunksDropped = Counter.builder("relay.audio_chunks_dropped_total")
+                .description("Uplink audio chunks dropped due to backpressure queue overflow")
+                .register(meterRegistry);
+
+        this.redisFailures = Counter.builder("relay.redis_failures_total")
+                .description("Redis operations that failed and were degraded")
+                .register(meterRegistry);
+    }
+
+    public void recordWsAuthRejection() {
+        wsAuthRejections.increment();
+    }
+
+    public void recordSessionRejection() {
+        sessionRejections.increment();
+    }
+
+    public void recordAudioChunkDropped() {
+        audioChunksDropped.increment();
+    }
+
+    public void recordRedisFailure() {
+        redisFailures.increment();
     }
 
     public void recordGatewayConnectionFailure() {
