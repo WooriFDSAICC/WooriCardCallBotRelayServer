@@ -47,6 +47,7 @@ public class FastApiConnectionService {
     private final StandardWebSocketClient webSocketClient;
     private final VoiceSessionLifecycleService lifecycleService;
     private final RelayMetrics relayMetrics;
+    private final FastApiCircuitBreaker circuitBreaker;
 
     public void connect(
             VoiceSessionEntry entry,
@@ -55,31 +56,67 @@ public class FastApiConnectionService {
     ) {
         String backendUrl = buildBackendUrl(entry);
 
-        FastApiBackendHandler backendHandler = new FastApiBackendHandler(
-                entry.getSessionId(),
-                entry.getRegistryKey(),
-                resultHandler,
-                disconnectHandler,
-                relayMetrics
-        );
-
-        try {
-            WebSocketSession backendSession = webSocketClient
-                    .execute(backendHandler, null, URI.create(backendUrl))
-                    .get(RelayConstants.FASTAPI_CONNECT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-
-            entry.bindBackendSession(backendSession, backendHandler);
-            log.info("[FastApiConnection] Connected registryKey={} direction={} url={}",
-                    entry.getRegistryKey(), entry.getDirection(), backendUrl);
-        } catch (Exception ex) {
+        // CB 가 OPEN 이면 게이트웨이 지속 장애 → 시도 없이 빠르게 종료(thundering-herd 방지).
+        if (!circuitBreaker.allowRequest()) {
             relayMetrics.recordGatewayConnectionFailure();
-            log.error("[FastApiConnection] Failed registryKey={} url={}", entry.getRegistryKey(), backendUrl, ex);
-            lifecycleService.terminateSession(
+            log.warn("[FastApiConnection] Circuit OPEN, skipping connect registryKey={} url={}",
+                    entry.getRegistryKey(), backendUrl);
+            lifecycleService.terminateSession(entry.getRegistryKey(), CloseStatus.SERVER_ERROR,
+                    TerminationReason.FASTAPI_CONNECTION_FAILURE, false);
+            return;
+        }
+
+        RelayProperties.FastApi cfg = relayProperties.getFastApi();
+        int maxAttempts = Math.max(1, cfg.getConnectMaxAttempts());
+        Exception lastError = null;
+
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            FastApiBackendHandler backendHandler = new FastApiBackendHandler(
+                    entry.getSessionId(),
                     entry.getRegistryKey(),
-                    CloseStatus.SERVER_ERROR,
-                    TerminationReason.FASTAPI_CONNECTION_FAILURE,
-                    false
+                    resultHandler,
+                    disconnectHandler,
+                    relayMetrics
             );
+            try {
+                WebSocketSession backendSession = webSocketClient
+                        .execute(backendHandler, null, URI.create(backendUrl))
+                        .get(RelayConstants.FASTAPI_CONNECT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+
+                entry.bindBackendSession(backendSession, backendHandler);
+                circuitBreaker.onSuccess();
+                log.info("[FastApiConnection] Connected registryKey={} direction={} url={} attempt={}",
+                        entry.getRegistryKey(), entry.getDirection(), backendUrl, attempt);
+                return;
+            } catch (Exception ex) {
+                lastError = ex;
+                log.warn("[FastApiConnection] Attempt {}/{} failed registryKey={} url={}: {}",
+                        attempt, maxAttempts, entry.getRegistryKey(), backendUrl, ex.toString());
+                if (attempt < maxAttempts && !sleepBackoff(cfg.getConnectBackoffMs() * attempt)) {
+                    break; // 인터럽트 시 중단
+                }
+            }
+        }
+
+        circuitBreaker.onFailure();
+        relayMetrics.recordGatewayConnectionFailure();
+        log.error("[FastApiConnection] Failed after {} attempt(s) registryKey={} url={}",
+                maxAttempts, entry.getRegistryKey(), backendUrl, lastError);
+        lifecycleService.terminateSession(
+                entry.getRegistryKey(),
+                CloseStatus.SERVER_ERROR,
+                TerminationReason.FASTAPI_CONNECTION_FAILURE,
+                false
+        );
+    }
+
+    private boolean sleepBackoff(long millis) {
+        try {
+            Thread.sleep(millis);
+            return true;
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            return false;
         }
     }
 
