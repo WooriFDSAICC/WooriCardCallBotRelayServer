@@ -11,6 +11,13 @@ spring:
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:}
       timeout: 2s
+      # ── 운영(HA) — Redis Sentinel 사용 시 아래 두 줄을 활성화하고 host/port 는 무시된다.
+      #   REDIS_SENTINEL_MASTER=mymaster, REDIS_SENTINEL_NODES=host1:26379,host2:26379,host3:26379
+      #   (빈 master 는 sentinel 모드를 강제하므로 값이 있을 때만 주석 해제)
+      # sentinel:
+      #   master: ${REDIS_SENTINEL_MASTER}
+      #   nodes: ${REDIS_SENTINEL_NODES}
+      #   password: ${REDIS_SENTINEL_PASSWORD:}
 
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
@@ -37,16 +44,29 @@ woori:
     kafka-topic: ${KAFKA_FDS_TOPIC:wooricard-fds-events}  # default = IntegrationContracts.TOPIC_FDS_EVENTS
     redis-session-key-prefix: "wooricard:session:"
     max-binary-chunk-bytes: ${MAX_BINARY_CHUNK_BYTES:65536}
+    max-sessions-per-instance: ${MAX_SESSIONS_PER_INSTANCE:0}   # 0 = 무제한
+    audio-queue-capacity: ${AUDIO_QUEUE_CAPACITY:256}
     websocket:
-      allowed-origins: "*"
+      allowed-origins: ${WS_ALLOWED_ORIGINS:*}   # 운영에서는 반드시 도메인 지정
       max-text-message-buffer-size: 65536
       max-binary-message-buffer-size: 65536
+      auth:
+        enabled: ${WS_AUTH_ENABLED:true}
+        mode: ${WS_AUTH_MODE:HMAC}               # HMAC | STATIC
+        secret: ${RELAY_WS_AUTH_SECRET:}         # HMAC 모드 필수(비밀관리 주입)
+        static-tokens: ${WS_AUTH_STATIC_TOKENS:} # STATIC 모드(콤마 구분)
+        clock-skew-seconds: ${WS_AUTH_CLOCK_SKEW_SECONDS:30}
     cti:
       enabled: ${CTI_ENABLED:false}
       base-url: ${CTI_BASE_URL:http://localhost:9000}
       escalation-path: /api/v1/escalations
       connect-timeout-ms: 3000
       read-timeout-ms: 5000
+      auth:
+        enabled: ${CTI_AUTH_ENABLED:false}
+        header-name: ${CTI_AUTH_HEADER:Authorization}
+        scheme: ${CTI_AUTH_SCHEME:Bearer }
+        token: ${CTI_API_TOKEN:}
       outbox:
         enabled: ${CTI_OUTBOX_ENABLED:true}
         max-attempts: ${CTI_OUTBOX_MAX_ATTEMPTS:5}
@@ -77,6 +97,14 @@ management:
   endpoint:
     health:
       show-details: when_authorized
+      probes:
+        enabled: true
+      group:
+        readiness:
+          # 브로커/Redis 장애 시 LB 가 트래픽을 빼도록 readiness 에 포함
+          include: readinessState,redis,kafka
+        liveness:
+          include: livenessState
   metrics:
     tags:
       application: ${spring.application.name}
